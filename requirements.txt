@@ -1,0 +1,6 @@
+gradio
+google-genai
+librosa
+numpy
+soundfile
+pedalboard

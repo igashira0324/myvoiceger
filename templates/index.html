@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyVoiceger - FFmpeg-Free音声変換</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <!-- ヘッダー -->
+    <header class="header">
+        <div class="container">
+            <h1><i class="fas fa-music"></i> MyVoiceger</h1>
+            <p>FFmpeg-Free軽量音声変換アプリ</p>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="container">
+        <!-- フラッシュメッセージ -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">
+                            <i class="fas fa-{% if category == 'success' %}check-circle{% elif category == 'error' %}exclamation-circle{% else %}info-circle{% endif %}"></i>
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- ステップ進行状況 -->
+        <div class="progress-container">
+            <div class="step-indicators">
+                <div class="step {% if (session.step_completed | default({})).get('upload', false) %}active{% endif %}" data-step="1">
+                    <div class="step-number">1</div>
+                    <div class="step-label">アップロード</div>
+                </div>
+                <div class="step {% if (session.step_completed | default({})).get('preprocessing', false) %}active{% endif %}" data-step="2">
+                    <div class="step-number">2</div>
+                    <div class="step-label">前処理</div>
+                </div>
+                <div class="step {% if (session.step_completed | default({})).get('conversion', false) %}active{% endif %}" data-step="3">
+                    <div class="step-number">3</div>
+                    <div class="step-label">音声変換</div>
+                </div>
+                <div class="step {% if (session.step_completed | default({})).get('postprocessing', false) %}active{% endif %}" data-step="4">
+                    <div class="step-number">4</div>
+                    <div class="step-label">後処理</div>
+                </div>
+                <div class="step {% if (session.step_completed | default({})).get('analysis', false) %}active{% endif %}" data-step="5">
+                    <div class="step-number">5</div>
+                    <div class="step-label">AI分析</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ステップ1: アップロード -->
+        <section class="step-section" id="step1">
+            <h2><i class="fas fa-upload"></i> ステップ1: 音声ファイルアップロード</h2>
+            
+            <!-- 楽曲アップロード -->
+            <div class="upload-card">
+                <h3>🎵 楽曲ファイル</h3>
+                <form action="{{ url_for('upload_music') }}" method="post" enctype="multipart/form-data">
+                    <div class="file-upload-area">
+                        <input type="file" id="music_file" name="music_file" accept=".mp3,.wav,.m4a,.flac" required>
+                        <label for="music_file" class="file-upload-label">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            楽曲ファイルを選択
+                        </label>
+                        <div class="file-info" id="music_file_info">
+                            {% if session.files.music %}
+                                <p><strong>{{ session.files.music.original_name }}</strong> ({{ session.files.music.size_mb }}MB)</p>
+                                <p class="upload-success"><i class="fas fa-check"></i> アップロード済み</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary" {% if (session.step_completed | default({})).get('upload', false) %}disabled{% endif %}>
+                        <i class="fas fa-upload"></i> 楽曲をアップロード
+                    </button>
+                </form>
+            </div>
+
+            <!-- ターゲット音声アップロード -->
+            <div class="upload-card">
+                <h3>🎤 ターゲット音声ファイル</h3>
+                <form action="{{ url_for('upload_voice') }}" method="post" enctype="multipart/form-data">
+                    <div class="file-upload-area">
+                        <input type="file" id="target_voice_file" name="target_voice_file" accept=".mp3,.wav,.m4a,.flac" required>
+                        <label for="target_voice_file" class="file-upload-label">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            ターゲット音声を選択
+                        </label>
+                        <div class="file-info" id="target_voice_file_info">
+                            {% if session.files.target_voice_upload %}
+                                <p><strong>{{ session.files.target_voice_upload.original_name }}</strong> ({{ session.files.target_voice_upload.size_mb }}MB)</p>
+                                <p class="upload-success"><i class="fas fa-check"></i> アップロード済み</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary" {% if not session.files.music %}disabled{% endif %}>
+                        <i class="fas fa-upload"></i> ターゲット音声をアップロード
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <!-- ステップ2: 前処理 -->
+        <section class="step-section {% if not (session.step_completed | default({})).get('upload', false) %}disabled{% endif %}" id="step2">
+            <h2><i class="fas fa-cogs"></i> ステップ2: 前処理</h2>
+            
+            <form action="{{ url_for('preprocess') }}" method="post">
+                <div class="preprocessing-card">
+                    <h3>前処理オプション</h3>
+                    
+                    <div class="form-group">
+                        <label for="audio_cleaner">
+                            <input type="checkbox" id="audio_cleaner" name="audio_cleaner">
+                            <span class="checkmark"></span>
+                            🎧 ノイズ除去（Audio Cleaner）
+                        </label>
+                        <p class="help-text">ターゲット音声からノイズを除去します</p>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-success" {% if not session.files.music or not session.files.target_voice_upload %}disabled{% endif %}>
+                        <i class="fas fa-play"></i> 前処理を開始
+                    </button>
+                </div>
+            </form>
+            
+            <!-- 前処理結果 -->
+            {% if (session.step_completed | default({})).get('preprocessing', false) %}
+                <div class="result-card">
+                    <h4>前処理完了</h4>
+                    <div class="file-list">
+                        {% if session.files.vocal %}
+                            <div class="file-item">
+                                <i class="fas fa-music"></i>
+                                <span>ボーカル（楽曲）: {{ session.files.vocal.original_name }}</span>
+                            </div>
+                        {% endif %}
+                        {% if session.files.instrumental %}
+                            <div class="file-item">
+                                <i class="fas fa-music"></i>
+                                <span>インストルメンタル: {{ session.files.instrumental.original_name }}</span>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+        </section>
+
+        <!-- ステップ3: 音声変換 -->
+        <section class="step-section {% if not (session.step_completed | default({})).get('preprocessing', false) %}disabled{% endif %}" id="step3">
+            <h2><i class="fas fa-exchange-alt"></i> ステップ3: 音声変換</h2>
+            
+            <form action="{{ url_for('convert_voice_route') }}" method="post">
+                <div class="conversion-card">
+                    <h3>変換パラメータ</h3>
+                    
+                    <div class="form-group">
+                        <label for="pitch_shift">音程調整: <span id="pitch_value">0</span></label>
+                        <input type="range" id="pitch_shift" name="pitch_shift" min="-12" max="12" value="0" 
+                               oninput="document.getElementById('pitch_value').textContent = this.value">
+                        <p class="help-text">半音単位で音程を調整 (-12〜+12)</p>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="formant_shift">フォルマントシフト: <span id="formant_value">0</span></label>
+                        <input type="range" id="formant_shift" name="formant_shift" min="-10" max="10" value="0" 
+                               oninput="document.getElementById('formant_value').textContent = this.value">
+                        <p class="help-text">声のキャラクターを調整 (-10〜+10)</p>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="algorithm">変換アルゴリズム</label>
+                        <select id="algorithm" name="algorithm" required>
+                            <option value="rvc">RVC (推奨)</option>
+                            <option value="so-vits">SO-VITS</option>
+                            <option value="basic"> Basic変換</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-warning" {% if not (session.step_completed | default({})).get('preprocessing', false) %}disabled{% endif %}>
+                        <i class="fas fa-magic"></i> 音声変換を開始
+                    </button>
+                </div>
+            </form>
+            
+            <!-- 変換結果 -->
+            {% if (session.step_completed | default({})).get('conversion', false) %}
+                <div class="result-card">
+                    <h4>音声変換完了</h4>
+                    <div class="file-list">
+                        {% if session.files.converted_vocal %}
+                            <div class="file-item">
+                                <i class="fas fa-microphone"></i>
+                                <span>変換済みボーカル: {{ session.files.converted_vocal.original_name }}</span>
+                                <a href="{{ url_for('download_file', filename=session.files.converted_vocal.original_name) }}" class="btn btn-sm btn-outline">
+                                    <i class="fas fa-download"></i> ダウンロード
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+        </section>
+
+        <!-- ステップ4: 後処理 -->
+        <section class="step-section {% if not (session.step_completed | default({})).get('conversion', false) %}disabled{% endif %}" id="step4">
+            <h2><i class="fas fa-sliders-h"></i> ステップ4: 後処理・ミックス</h2>
+            
+            <form action="{{ url_for('postprocess') }}" method="post">
+                <div class="postprocessing-card">
+                    <h3>エフェクト・ミックス</h3>
+                    
+                    <div class="form-group">
+                        <label for="vocal_effects">ボーカルエフェクト</label>
+                        <select id="vocal_effects" name="vocal_effects">
+                            <option value="none">エフェクトなし</option>
+                            <option value="reverb">リバーブ</option>
+                            <option value="chorus">コーラス</option>
+                            <option value="delay">ディレイ</option>
+                            <option value="distortion">ディストーション</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="vocal_volume">ボーカル音量: <span id="vocal_volume_value">100</span>%</label>
+                        <input type="range" id="vocal_volume" name="vocal_volume" min="0" max="200" value="100" 
+                               oninput="document.getElementById('vocal_volume_value').textContent = this.value">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="instrumental_volume">インストルメンタル音量: <span id="instrumental_volume_value">100</span>%</label>
+                        <input type="range" id="instrumental_volume" name="instrumental_volume" min="0" max="200" value="100" 
+                               oninput="document.getElementById('instrumental_volume_value').textContent = this.value">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-info" {% if not (session.step_completed | default({})).get('conversion', false) %}disabled{% endif %}>
+                        <i class="fas fa-mix"></i> 後処理を開始
+                    </button>
+                </div>
+            </form>
+            
+            <!-- ミックス結果 -->
+            {% if (session.step_completed | default({})).get('postprocessing', false) %}
+                <div class="result-card">
+                    <h4>ミックス完了</h4>
+                    <div class="file-list">
+                        {% if session.files.final_output %}
+                            <div class="file-item">
+                                <i class="fas fa-compact-disc"></i>
+                                <span>最終ミックス: {{ session.files.final_output.original_name }}</span>
+                                <a href="{{ url_for('download_file', filename=session.files.final_output.original_name) }}" class="btn btn-sm btn-success">
+                                    <i class="fas fa-download"></i> ダウンロード
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+        </section>
+
+        <!-- ステップ5: AI分析 -->
+        <section class="step-section" id="step5">
+            <h2><i class="fas fa-brain"></i> ステップ5: AI分析・視覚化</h2>
+            
+            <form action="{{ url_for('analyze') }}" method="post">
+                <div class="analysis-card">
+                    <h3>歌詞分析</h3>
+                    
+                    <div class="form-group">
+                        <label for="lyrics_text">歌詞テキスト</label>
+                        <textarea id="lyrics_text" name="lyrics_text" rows="8" 
+                                  placeholder="歌詞を入力してください..." required></textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-purple">
+                        <i class="fas fa-search"></i> AI分析を実行
+                    </button>
+                </div>
+            </form>
+            
+            <!-- 分析結果 -->
+            {% if session.analysis %}
+                <div class="result-card">
+                    <h4>AI分析結果</h4>
+                    <div class="analysis-results">
+                        <div class="mood-analysis">
+                            <h5>ムード分析</h5>
+                            <p><strong>ムード:</strong> {{ session.analysis.mood_analysis.get('mood', '不明') }}</p>
+                            <p><strong>感情スコア:</strong> {{ session.analysis.mood_analysis.get('emotion_score', 0.0) }}</p>
+                            <p><strong>ジャンル:</strong> {{ session.analysis.mood_analysis.get('genre', '不明') }}</p>
+                        </div>
+                        
+                        <div class="song-insights">
+                            <h5>ソングインサイト</h5>
+                            <p><strong>推奨ボーカルスタイル:</strong> {{ session.analysis.song_insights.get('vocal_style', '不明') }}</p>
+                            <p><strong>感情的な展開:</strong> {{ session.analysis.song_insights.get('emotional_arc', '不明') }}</p>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </section>
+
+        <!-- リセットボタン -->
+        <div class="reset-section">
+            <a href="{{ url_for('reset') }}" class="btn btn-danger btn-lg" 
+               onclick="return confirm('すべてのデータをリセットしますか？')">
+                <i class="fas fa-refresh"></i> リセット
+            </a>
+        </div>
+    </main>
+
+    <!-- フッター -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 MyVoiceger - FFmpeg-Free音声変換アプリケーション</p>
+            <p class="tech-info">
+                <i class="fas fa-microchip"></i> 
+                技術: Flask + librosa + soundfile | 
+                <i class="fas fa-shield-alt"></i> 
+                Gradioを完全に回避した軽量構成
+            </p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

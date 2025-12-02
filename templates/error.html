@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>エラー {{ error_code }} - MyVoiceger</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- ヘッダー -->
+    <header class="header">
+        <div class="container">
+            <h1><i class="fas fa-music"></i> MyVoiceger</h1>
+            <p>FFmpeg-Free軽量音声変換アプリ</p>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="container">
+        <div class="error-container">
+            <!-- エラーアイコン -->
+            <div class="error-icon">
+                {% if error_code == 404 %}
+                    <i class="fas fa-search"></i>
+                {% elif error_code == 500 %}
+                    <i class="fas fa-exclamation-triangle"></i>
+                {% elif error_code == 413 %}
+                    <i class="fas fa-file-upload"></i>
+                {% else %}
+                    <i class="fas fa-exclamation-circle"></i>
+                {% endif %}
+            </div>
+
+            <!-- エラーコード -->
+            <h2 class="error-code">{{ error_code }}</h2>
+
+            <!-- エラーメッセージ -->
+            <h3 class="error-title">
+                {% if error_code == 404 %}
+                    ページが見つかりません
+                {% elif error_code == 500 %}
+                    サーバー内部エラー
+                {% elif error_code == 413 %}
+                    ファイルサイズが大きすぎます
+                {% else %}
+                    エラーが発生しました
+                {% endif %}
+            </h3>
+
+            <!-- 詳細メッセージ -->
+            <p class="error-message">{{ error_message }}</p>
+
+            <!-- 説明 -->
+            <div class="error-description">
+                {% if error_code == 404 %}
+                    <p>お探しのページは存在しないか、移動された可能性があります。</p>
+                    <p>URLが正しいかどうかご確認ください。</p>
+                {% elif error_code == 500 %}
+                    <p>サーバー内部で予期しないエラーが発生しました。</p>
+                    <p>しばらく時間をおいてから再度お試しください。</p>
+                {% elif error_code == 413 %}
+                    <p>アップロードされたファイルサイズが大きすぎます。</p>
+                    <p>ファイルサイズは100MB以下にしてください。</p>
+                {% else %}
+                    <p>エラーが発生しました。しばらく時間をおいてから再度お試しください。</p>
+                {% endif %}
+            </div>
+
+            <!-- アクションボタン -->
+            <div class="error-actions">
+                <a href="{{ url_for('index') }}" class="btn btn-primary">
+                    <i class="fas fa-home"></i>
+                    ホームに戻る
+                </a>
+                
+                {% if error_code == 404 %}
+                    <button onclick="history.back()" class="btn btn-outline">
+                        <i class="fas fa-arrow-left"></i>
+                        前のページに戻る
+                    </button>
+                {% endif %}
+                
+                {% if error_code == 413 %}
+                    <a href="{{ url_for('index') }}#step1" class="btn btn-info">
+                        <i class="fas fa-upload"></i>
+                        ファイルを再アップロード
+                    </a>
+                {% endif %}
+            </div>
+
+            <!-- 技術情報 -->
+            <div class="error-tech-info">
+                <h4>技術情報</h4>
+                <ul>
+                    <li><strong>エラーコード:</strong> {{ error_code }}</li>
+                    <li><strong>アプリケーション:</strong> MyVoiceger Flask版</li>
+                    <li><strong>技術スタック:</strong> Flask + librosa + soundfile</li>
+                    <li><strong>FFmpeg-Free:</strong> Gradioを完全に回避した軽量構成</li>
+                </ul>
+            </div>
+
+            <!-- サポート情報 -->
+            <div class="error-support">
+                <h4>サポート</h4>
+                <p>問題が続く場合は、以下のことをお試しください：</p>
+                <ul>
+                    <li>ブラウザのキャッシュをクリアする</li>
+                    <li>別のブラウザでアクセスする</li>
+                    <li>ファイルサイズを確認する（100MB以下）</li>
+                    <li>サポートされるファイル形式を確認する（MP3, WAV, M4A, FLAC）</li>
+                </ul>
+            </div>
+        </div>
+    </main>
+
+    <!-- フッター -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 MyVoiceger - FFmpeg-Free音声変換アプリケーション</p>
+            <p class="tech-info">
+                <i class="fas fa-microchip"></i> 
+                技術: Flask + librosa + soundfile | 
+                <i class="fas fa-shield-alt"></i> 
+                Gradioを完全に回避した軽量構成
+            </p>
+        </div>
+    </footer>
+
+    <script>
+        // シンプルなエラー追跡用スクリプト
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('MyVoiceger Error Page Loaded');
+            
+            // エラー報告機能
+            function reportError() {
+                console.log('Error Report: Application Error');
+            }
+
+            // ホームに戻るボタン処理
+            const homeButton = document.querySelector('a[href="{{ url_for("index") }}"]');
+            if (homeButton) {
+                homeButton.addEventListener('click', function() {
+                    console.log('Navigating to home page');
+                });
+            }
+        });
+
+        // シンプルなキーボードサポート
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'h' || e.key === 'H') {
+                window.location.href = '{{ url_for("index") }}';
+            }
+        });
+    </script>
+</body>
+</html>
